@@ -31,6 +31,7 @@ ExportedObj/
 *.csproj
 *.unityproj
 *.sln
+*.slnx
 *.suo
 *.tmp
 *.user
@@ -87,6 +88,12 @@ Desktop.ini
 
 # Unity Cloud Build
 [Uu]nity[Cc]loud[Bb]uild[Cc]ache/
+
+# Package manager lock files (auto-generated)
+[Pp]ackages/packages-lock.json
+
+# Plastic SCM ignore file (auto-generated)
+ignore.conf
 
 # FNAF specific ignores (if any)
 # Add project-specific ignores here
