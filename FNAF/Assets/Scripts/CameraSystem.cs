@@ -31,21 +31,28 @@ public class CameraData
 public class CameraSystem : MonoBehaviour
 {
     #region Serialized Fields
-
+    //==========================================
+    //
     [Header("Camera Settings")]
+    // 
+    //==========================================
     [SerializeField] private List<CameraData> cameras = new List<CameraData>();
     [SerializeField] private CameraLocation currentCamera = CameraLocation.None;
     [SerializeField] private bool isTabletUp = false;
 
+    //==========================================
+    //
     [Header("UI References")]
+    //
+    //==========================================
     [SerializeField] private UnityEngine.UI.RawImage cameraDisplay;
     [SerializeField] private GameObject tabletUI;
 
-    [Header("Static Effect")]
-    [SerializeField] private Material staticMaterial;
-    [SerializeField] private float staticIntensity = 0.5f;
-
+    //==========================================
+    //
     [Header("Debug - Viewpoint Switching")]
+    //
+    //==========================================
     [SerializeField] private bool debugViewpointMode = false;
     [SerializeField] private Camera mainCamera;
 
@@ -55,12 +62,10 @@ public class CameraSystem : MonoBehaviour
 
     private PowerSystem powerSystem;
     private Dictionary<CameraLocation, CameraData> cameraDict = new Dictionary<CameraLocation, CameraData>();
-
-    // Debug viewpoint state
+    private bool isViewingSecurityCamera = false;
     private Vector3 originalMainCameraPosition;
     private Quaternion originalMainCameraRotation;
-    private bool isViewingSecurityCamera = false;
-    private int currentDebugCameraIndex = -1; // -1 means viewing main camera
+    private int currentDebugCameraIndex = -1;
 
     #endregion
 
@@ -95,12 +100,6 @@ public class CameraSystem : MonoBehaviour
     {
         if (mainCamera == null)
             mainCamera = Camera.main;
-
-        if (mainCamera != null)
-        {
-            originalMainCameraPosition = mainCamera.transform.position;
-            originalMainCameraRotation = mainCamera.transform.rotation;
-        }
     }
 
     #endregion
@@ -119,8 +118,7 @@ public class CameraSystem : MonoBehaviour
     private void HandleTabletInput()
     {
         // Toggle tablet (C key or mouse scroll up)
-        if (Keyboard.current.cKey.wasPressedThisFrame ||
-            (Mouse.current != null && Mouse.current.scroll.ReadValue().y > 0f))
+        if (Keyboard.current.cKey.wasPressedThisFrame)
         {
             ToggleTablet();
         }
@@ -138,10 +136,6 @@ public class CameraSystem : MonoBehaviour
         if (Keyboard.current.digit5Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_5);
         if (Keyboard.current.digit6Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_6);
         if (Keyboard.current.digit7Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_7);
-
-        // Arrow keys for navigation
-        if (Keyboard.current.leftArrowKey.wasPressedThisFrame) SwitchToPreviousCamera();
-        if (Keyboard.current.rightArrowKey.wasPressedThisFrame) SwitchToNextCamera();
     }
 
     private void HandleDebugViewpointInput()
@@ -170,8 +164,10 @@ public class CameraSystem : MonoBehaviour
 
     public void ToggleTablet()
     {
+        // toggle
         isTabletUp = !isTabletUp;
 
+        // UI ELEMENT
         if (tabletUI != null)
             tabletUI.SetActive(isTabletUp);
 
@@ -180,13 +176,11 @@ public class CameraSystem : MonoBehaviour
             currentCamera = CameraLocation.None;
             if (cameraDisplay != null)
                 cameraDisplay.texture = null;
+            ReturnToMainCameraView();
         }
         else
         {
-            if (cameras.Count > 0)
-            {
-                SwitchToCameraViewpoint(cameras[1].location);
-            }
+            SwitchToCameraViewpoint(cameras[0].location);
         }
     }
 
@@ -200,6 +194,7 @@ public class CameraSystem : MonoBehaviour
 
         if (cameraDisplay != null)
             cameraDisplay.texture = null;
+        ReturnToMainCameraView();
     }
 
     #endregion
@@ -218,26 +213,6 @@ public class CameraSystem : MonoBehaviour
         {
             cameraDisplay.texture = camData.renderTexture;
         }
-
-        CheckForStatic(location);
-    }
-
-    private void SwitchToNextCamera()
-    {
-        int currentIndex = GetCameraIndex(currentCamera);
-        if (currentIndex >= 0 && currentIndex < cameras.Count - 1)
-        {
-            SwitchCamera(cameras[currentIndex + 1].location);
-        }
-    }
-
-    private void SwitchToPreviousCamera()
-    {
-        int currentIndex = GetCameraIndex(currentCamera);
-        if (currentIndex > 0)
-        {
-            SwitchCamera(cameras[currentIndex - 1].location);
-        }
     }
 
     private int GetCameraIndex(CameraLocation location)
@@ -248,30 +223,6 @@ public class CameraSystem : MonoBehaviour
                 return i;
         }
         return -1;
-    }
-
-    #endregion
-
-    #region Static Detection
-
-    private void CheckForStatic(CameraLocation location)
-    {
-        AnimatronicBase[] animatronics = FindObjectsByType<AnimatronicBase>(FindObjectsSortMode.None);
-        bool hasStatic = false;
-
-        foreach (var animatronic in animatronics)
-        {
-            if (animatronic.IsNearCameraLocation(location))
-            {
-                hasStatic = true;
-                break;
-            }
-        }
-
-        if (cameraDict.ContainsKey(location))
-        {
-            cameraDict[location].hasStatic = hasStatic;
-        }
     }
 
     #endregion
@@ -314,24 +265,6 @@ public class CameraSystem : MonoBehaviour
 
     #endregion
 
-    #region Camera Management
-
-    public void AddCamera(CameraLocation location, string displayName, Camera camera, RenderTexture renderTexture)
-    {
-        CameraData newCam = new CameraData
-        {
-            location = location,
-            displayName = displayName,
-            camera = camera,
-            renderTexture = renderTexture,
-            hasStatic = false
-        };
-        cameras.Add(newCam);
-        cameraDict[location] = newCam;
-    }
-
-    #endregion
-
     #region Debug Viewpoint Switching
 
     /// <summary>
@@ -358,7 +291,7 @@ public class CameraSystem : MonoBehaviour
             return;
         }
 
-        // Store original view if we haven't already
+        // Store original view before switching (only if not already viewing a security camera)
         if (!isViewingSecurityCamera)
         {
             originalMainCameraPosition = mainCamera.transform.position;
