@@ -10,6 +10,7 @@ public enum CameraLocation
     CAM_2A,
     CAM_2B,
     CAM_3A,
+    CAM_3B,
     CAM_3C,
     CAM_4A,
     CAM_4B,
@@ -17,7 +18,6 @@ public enum CameraLocation
     CAM_5A,
     CAM_5B,
     CAM_5C,
-    CAM_6
 }
 
 [System.Serializable]
@@ -55,7 +55,7 @@ public class CameraSystem : MonoBehaviour
     [Header("Debug - Viewpoint Switching")]
     //
     //==========================================
-    [SerializeField] private bool debugViewpointMode = false;
+    [SerializeField] private bool debugViewpointMode = true; // Always enabled for debugging - tablet mode disabled
     [SerializeField] private Camera mainCamera;
 
     #endregion
@@ -94,7 +94,19 @@ public class CameraSystem : MonoBehaviour
         cameraDict.Clear();
         foreach (var cam in cameras)
         {
-            cameraDict[cam.location] = cam;
+            if (cam != null && cam.location != CameraLocation.None)
+            {
+                cameraDict[cam.location] = cam;
+            }
+        }
+
+        Debug.Log($"CameraSystem: Initialized {cameras.Count} cameras. Available cameras:");
+        for (int i = 0; i < cameras.Count; i++)
+        {
+            if (cameras[i] != null)
+            {
+                Debug.Log($"  [{i}] {cameras[i].location} - {cameras[i].displayName}");
+            }
         }
     }
 
@@ -102,6 +114,13 @@ public class CameraSystem : MonoBehaviour
     {
         if (mainCamera == null)
             mainCamera = Camera.main;
+
+        // Store the original main camera position/rotation at startup
+        if (mainCamera != null)
+        {
+            originalMainCameraPosition = mainCamera.transform.position;
+            originalMainCameraRotation = mainCamera.transform.rotation;
+        }
     }
 
     #endregion
@@ -112,58 +131,28 @@ public class CameraSystem : MonoBehaviour
     {
         if (Keyboard.current == null) return;
 
-        HandleTabletInput();
-        HandleCameraSwitching();
+        // Only handle debug viewpoint mode - tablet mode disabled for debugging
         HandleDebugViewpointInput();
-    }
 
-    private void HandleTabletInput()
-    {
-        // Toggle tablet (C key or mouse scroll up)
-        if (Keyboard.current.cKey.wasPressedThisFrame)
-        {
-            ToggleTablet();
-        }
     }
-
-    private void HandleCameraSwitching()
-    {
-        if (!isTabletUp) return;
-
-        // Number keys for direct camera selection
-        if (Keyboard.current.digit1Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_1A);
-        if (Keyboard.current.digit2Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_2A);
-        if (Keyboard.current.digit3Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_3A);
-        if (Keyboard.current.digit4Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_4A);
-        if (Keyboard.current.digit5Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_5A);
-        if (Keyboard.current.digit6Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_6);
-        if (Keyboard.current.digit7Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_4B);
-        if (Keyboard.current.digit8Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_4C);
-        if (Keyboard.current.digit9Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_5B);
-        if (Keyboard.current.digit0Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_5C);
-    }
+    /// <summary>
+    /// Cycles to the next camera in tablet mode (updates the tablet display)
+    /// </summary>
 
     private void HandleDebugViewpointInput()
     {
-        if (!debugViewpointMode) return;
+        // Always enable debug mode for now (tablet mode disabled)
+        // if (!debugViewpointMode) 
+        // {
+        //     Debug.LogWarning("CameraSystem: HandleDebugViewpointInput called but debugViewpointMode is false!");
+        //     return;
+        // }
 
-        // Number keys to switch viewpoint
-        if (Keyboard.current.digit1Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_1A);
-        if (Keyboard.current.digit2Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_2A);
-        if (Keyboard.current.digit3Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_3A);
-        if (Keyboard.current.digit4Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_4A);
-        if (Keyboard.current.digit5Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_5A);
-        if (Keyboard.current.digit6Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_6);
-        if (Keyboard.current.digit7Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_4B);
-        if (Keyboard.current.digit8Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_4C);
-        if (Keyboard.current.digit9Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_5B);
-        if (Keyboard.current.digit0Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_5C);
-
-        // Cycle through cameras
+        // Cycle through cameras (N key)
         if (Keyboard.current.nKey.wasPressedThisFrame) CycleToNextDebugCamera();
 
-        // Return to main camera view
-        if (Keyboard.current.digit0Key.wasPressedThisFrame) ReturnToMainCameraView();
+        // Return to main camera view (m key)
+        if (Keyboard.current.mKey.wasPressedThisFrame) ReturnToMainCameraView();
     }
 
     #endregion
@@ -188,7 +177,12 @@ public class CameraSystem : MonoBehaviour
         }
         else
         {
-            SwitchToCameraViewpoint(cameras[0].location);
+            // When opening tablet, switch to first camera using SwitchCamera (for tablet display)
+            // NOT SwitchToCameraViewpoint (which is for debug mode)
+            if (cameras.Count > 0 && cameras[0] != null)
+            {
+                SwitchCamera(cameras[0].location);
+            }
         }
     }
 
@@ -202,7 +196,17 @@ public class CameraSystem : MonoBehaviour
 
         if (cameraDisplay != null)
             cameraDisplay.texture = null;
-        ReturnToMainCameraView();
+
+        // Only restore main camera view if we were actually viewing a security camera
+        if (isViewingSecurityCamera)
+        {
+            ReturnToMainCameraView();
+        }
+        else
+        {
+            // Just ensure all security cameras are rendering to their textures
+            RestoreAllCameraTextures();
+        }
     }
 
     #endregion
@@ -212,14 +216,38 @@ public class CameraSystem : MonoBehaviour
     public void SwitchCamera(CameraLocation location)
     {
         if (!isTabletUp || !cameraDict.ContainsKey(location))
+        {
+            Debug.LogWarning($"CameraSystem: Cannot switch to {location} - Tablet: {isTabletUp}, In Dict: {cameraDict.ContainsKey(location)}");
             return;
+        }
+
+        // Don't switch if we're in debug viewpoint mode
+        if (debugViewpointMode)
+        {
+            Debug.LogWarning($"CameraSystem: Cannot use SwitchCamera in debug viewpoint mode. Use SwitchToCameraViewpoint instead.");
+            return;
+        }
 
         currentCamera = location;
         CameraData camData = cameraDict[location];
 
-        if (cameraDisplay != null && camData.renderTexture != null)
+        Debug.Log($"CameraSystem: Switching tablet to {location} ({camData.displayName})");
+
+        if (cameraDisplay != null)
         {
-            cameraDisplay.texture = camData.renderTexture;
+            if (camData.renderTexture != null)
+            {
+                cameraDisplay.texture = camData.renderTexture;
+            }
+            else
+            {
+                Debug.LogWarning($"CameraSystem: RenderTexture is null for {location}");
+                cameraDisplay.texture = null;
+            }
+        }
+        else
+        {
+            Debug.LogWarning("CameraSystem: cameraDisplay is null!");
         }
     }
 
@@ -252,23 +280,39 @@ public class CameraSystem : MonoBehaviour
         return isTabletUp;
     }
 
-    public bool IsAnimatronicVisible(CameraLocation location, string animatronicName)
+    /// <summary>
+    /// Returns the number of cameras in the system
+    /// </summary>
+    public int GetCameraCount()
     {
-        if (!cameraDict.ContainsKey(location))
-            return false;
+        return cameras.Count;
+    }
 
-        AnimatronicBase[] animatronics = FindObjectsByType<AnimatronicBase>(FindObjectsSortMode.None);
-        foreach (var animatronic in animatronics)
+    /// <summary>
+    /// Logs all cameras in the system (for debugging)
+    /// </summary>
+    [ContextMenu("List All Cameras")]
+    public void ListAllCameras()
+    {
+        Debug.Log($"=== CAMERA SYSTEM DEBUG ===");
+        Debug.Log($"Total cameras in list: {cameras.Count}");
+        Debug.Log($"Cameras in dictionary: {cameraDict.Count}");
+
+        for (int i = 0; i < cameras.Count; i++)
         {
-            if (string.IsNullOrEmpty(animatronicName) || animatronic.name.Contains(animatronicName))
+            if (cameras[i] != null)
             {
-                if (animatronic.IsNearCameraLocation(location))
-                {
-                    return true;
-                }
+                Debug.Log($"  [{i}] {cameras[i].location} - {cameras[i].displayName} - Camera: {(cameras[i].camera != null ? cameras[i].camera.name : "NULL")}");
+            }
+            else
+            {
+                Debug.LogWarning($"  [{i}] NULL ENTRY");
             }
         }
-        return false;
+
+        Debug.Log($"Current camera: {currentCamera}");
+        Debug.Log($"Current debug index: {currentDebugCameraIndex}");
+        Debug.Log("===========================");
     }
 
     #endregion
@@ -323,7 +367,6 @@ public class CameraSystem : MonoBehaviour
         isViewingSecurityCamera = true;
         currentCamera = location;
 
-        Debug.Log($"CameraSystem: Switched main camera view to {location} ({camData.displayName})");
     }
 
     /// <summary>
@@ -353,37 +396,60 @@ public class CameraSystem : MonoBehaviour
     }
 
     /// <summary>
-    /// Cycles to the next camera in debug viewpoint mode (excludes main camera from cycle)
+    /// Cycles to the next camera in debug viewpoint mode (cycles through all cameras)
     /// </summary>
     private void CycleToNextDebugCamera()
     {
         if (cameras.Count == 0)
         {
-            Debug.LogWarning("CameraSystem: No cameras available to cycle through!");
+            Debug.LogWarning("CameraSystem: No cameras available to cycle. Make sure cameras are added to the cameras list in the Inspector!");
             return;
         }
 
-        // If currently viewing main camera, start with first camera
-        if (currentDebugCameraIndex < 0)
+        // Filter out null cameras
+        List<CameraData> validCameras = new List<CameraData>();
+        foreach (var cam in cameras)
         {
-            SwitchToCameraViewpoint(cameras[0].location);
+            if (cam != null && cam.camera != null && cam.location != CameraLocation.None)
+            {
+                validCameras.Add(cam);
+            }
+        }
+
+        if (validCameras.Count == 0)
+        {
+            Debug.LogWarning("CameraSystem: No valid cameras found in the cameras list!");
             return;
+        }
+
+        // Find current camera index in valid cameras list
+        int currentValidIndex = -1;
+        if (currentDebugCameraIndex >= 0 && currentDebugCameraIndex < cameras.Count)
+        {
+            CameraLocation currentLoc = cameras[currentDebugCameraIndex].location;
+            for (int i = 0; i < validCameras.Count; i++)
+            {
+                if (validCameras[i].location == currentLoc)
+                {
+                    currentValidIndex = i;
+                    break;
+                }
+            }
         }
 
         // Move to next camera
-        currentDebugCameraIndex++;
+        currentValidIndex++;
+        if (currentValidIndex >= validCameras.Count)
+        {
+            currentValidIndex = 0;
+        }
 
-        // If we've reached the end, loop back to first camera (not main camera)
-        if (currentDebugCameraIndex >= cameras.Count)
-        {
-            currentDebugCameraIndex = 0;
-            SwitchToCameraViewpoint(cameras[0].location);
-            Debug.Log("CameraSystem: Cycled back to first camera");
-        }
-        else
-        {
-            SwitchToCameraViewpoint(cameras[currentDebugCameraIndex].location);
-        }
+        // Update the actual index in the cameras list
+        CameraLocation nextLocation = validCameras[currentValidIndex].location;
+        currentDebugCameraIndex = GetCameraIndex(nextLocation);
+
+        SwitchToCameraViewpoint(nextLocation);
+        Debug.Log($"CameraSystem: Cycling to camera {currentValidIndex + 1}/{validCameras.Count}: {nextLocation} ({validCameras[currentValidIndex].displayName})");
     }
 
     private void RestorePreviousCameraTexture()

@@ -22,8 +22,8 @@ public class CameraUI : MonoBehaviour
 
     private void Start()
     {
-        cameraSystem = FindObjectOfType<CameraSystem>();
-        audioManager = FindObjectOfType<AudioManager>();
+        cameraSystem = FindFirstObjectByType<CameraSystem>();
+        audioManager = FindFirstObjectByType<AudioManager>();
 
         SetupButtons();
     }
@@ -44,7 +44,6 @@ public class CameraUI : MonoBehaviour
     private void Update()
     {
         UpdateCameraDisplay();
-        UpdateStaticEffect();
         UpdateCameraInfo();
     }
 
@@ -54,29 +53,9 @@ public class CameraUI : MonoBehaviour
             return;
 
         bool isTabletUp = cameraSystem.IsTabletUp();
-        
+
         // Show/hide camera display based on tablet state
         cameraDisplay.gameObject.SetActive(isTabletUp);
-    }
-
-    private void UpdateStaticEffect()
-    {
-        if (cameraSystem == null || staticOverlay == null)
-            return;
-
-        CameraLocation currentCam = cameraSystem.GetCurrentCamera();
-        bool hasStatic = cameraSystem.IsAnimatronicVisible(currentCam, ""); // Check if any animatronic is visible
-
-        staticOverlay.SetActive(hasStatic && cameraSystem.IsTabletUp());
-
-        // Animate static effect
-        if (staticImage != null && hasStatic)
-        {
-            // Randomize static opacity for flicker effect
-            Color c = staticImage.color;
-            c.a = Random.Range(0.3f, 0.7f);
-            staticImage.color = c;
-        }
     }
 
     private void UpdateCameraInfo()
@@ -100,7 +79,6 @@ public class CameraUI : MonoBehaviour
         if (cameraNameText != null)
         {
             CameraLocation cam = cameraSystem.GetCurrentCamera();
-            cameraNameText.text = GetCameraName(cam);
         }
     }
 
@@ -110,34 +88,17 @@ public class CameraUI : MonoBehaviour
         {
             case CameraLocation.CAM_1A: return "1A";
             case CameraLocation.CAM_1B: return "1B";
-            case CameraLocation.CAM_1C: return "1C";
             case CameraLocation.CAM_2A: return "2A";
             case CameraLocation.CAM_2B: return "2B";
-            case CameraLocation.CAM_3: return "3";
+            case CameraLocation.CAM_3A: return "3A";
+            case CameraLocation.CAM_3B: return "3B";
+            case CameraLocation.CAM_3C: return "3C";
             case CameraLocation.CAM_4A: return "4A";
             case CameraLocation.CAM_4B: return "4B";
-            case CameraLocation.CAM_5: return "5";
-            case CameraLocation.CAM_6: return "6";
-            case CameraLocation.CAM_7: return "7";
-            default: return "";
-        }
-    }
-
-    private string GetCameraName(CameraLocation location)
-    {
-        switch (location)
-        {
-            case CameraLocation.CAM_1A: return "SHOW STAGE";
-            case CameraLocation.CAM_1B: return "DINING AREA";
-            case CameraLocation.CAM_1C: return "PIRATE COVE";
-            case CameraLocation.CAM_2A: return "WEST HALL";
-            case CameraLocation.CAM_2B: return "WEST HALL CORNER";
-            case CameraLocation.CAM_3: return "SUPPLY CLOSET";
-            case CameraLocation.CAM_4A: return "EAST HALL";
-            case CameraLocation.CAM_4B: return "EAST HALL CORNER";
-            case CameraLocation.CAM_5: return "BACKSTAGE";
-            case CameraLocation.CAM_6: return "KITCHEN";
-            case CameraLocation.CAM_7: return "RESTROOMS";
+            case CameraLocation.CAM_4C: return "4C";
+            case CameraLocation.CAM_5A: return "5A";
+            case CameraLocation.CAM_5B: return "5B";
+            case CameraLocation.CAM_5C: return "5C";
             default: return "";
         }
     }
@@ -163,10 +124,11 @@ public class CameraUI : MonoBehaviour
             audioManager.PlayButtonClick();
 
         CameraLocation[] locations = {
-            CameraLocation.CAM_1A, CameraLocation.CAM_1B, CameraLocation.CAM_1C,
-            CameraLocation.CAM_2A, CameraLocation.CAM_2B, CameraLocation.CAM_3,
-            CameraLocation.CAM_4A, CameraLocation.CAM_4B, CameraLocation.CAM_5,
-            CameraLocation.CAM_6, CameraLocation.CAM_7
+            CameraLocation.CAM_1A, CameraLocation.CAM_1B,
+            CameraLocation.CAM_2A, CameraLocation.CAM_2B,
+            CameraLocation.CAM_3A, CameraLocation.CAM_3B, CameraLocation.CAM_3C,
+            CameraLocation.CAM_4A, CameraLocation.CAM_4B, CameraLocation.CAM_4C,
+            CameraLocation.CAM_5A, CameraLocation.CAM_5B, CameraLocation.CAM_5C,
         };
 
         if (index >= 0 && index < locations.Length && cameraSystem != null)

@@ -202,23 +202,6 @@ public class LightSystem : MonoBehaviour
         return side == LightSide.Left ? IsLeftLightOn() : IsRightLightOn();
     }
 
-    public bool CanSeeAnimatronic(LightSide side)
-    {
-        if (!IsLightOn(side))
-            return false;
-
-        // Check if animatronic is in the hallway
-        AnimatronicBase[] animatronics = FindObjectsOfType<AnimatronicBase>();
-        foreach (var animatronic in animatronics)
-        {
-            if (animatronic.IsInHallway(side))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
     public void ResetLights()
     {
         leftLightOn = false;
