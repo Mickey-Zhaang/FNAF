@@ -219,6 +219,12 @@ MonoBehaviour:
   checkPowerKey: 112
   testDoorKey: 116
   testLightKey: 108
+  testCameraKey: 99
+  toggleTabletKey: 9
+  listCamerasKey: 118
+  cycleCamerasKey: 110
+  toggleDebugViewKey: 286
+  returnToMainViewKey: 287
 --- !u!4 &35544240
 Transform:
   m_ObjectHideFlags: 0
@@ -757,7 +763,7 @@ Camera:
   m_AllowMSAA: 1
   m_AllowDynamicResolution: 0
   m_ForceIntoRT: 0
-  m_OcclusionCulling: 1
+  m_OcclusionCulling: 0
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
 --- !u!4 &538980704
@@ -984,7 +990,7 @@ Light:
     serializedVersion: 2
     m_Bits: 4294967295
   m_RenderingLayerMask: 1
-  m_Lightmapping: 4
+  m_Lightmapping: 2
   m_LightShadowCasterMode: 0
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 1
@@ -1008,7 +1014,7 @@ Transform:
   m_GameObject: {fileID: 699906469}
   serializedVersion: 2
   m_LocalRotation: {x: 0.3883414, y: -0.0019372809, z: 0.0008156114, w: 0.9215132}
-  m_LocalPosition: {x: 2.45, y: 5.77, z: -0.33108997}
+  m_LocalPosition: {x: 11.04, y: 6.13, z: 3.1499996}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1198,7 +1204,7 @@ Transform:
   m_GameObject: {fileID: 737108094}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -1.11, y: 0.96, z: 2.71}
+  m_LocalPosition: {x: 0.1, y: 0.96, z: 1.61}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1250,6 +1256,8 @@ MonoBehaviour:
   tabletUI: {fileID: 0}
   staticMaterial: {fileID: 0}
   staticIntensity: 0.5
+  debugViewpointMode: 1
+  mainCamera: {fileID: 0}
 --- !u!4 &782204073
 Transform:
   m_ObjectHideFlags: 0
@@ -1821,7 +1829,7 @@ Transform:
   m_GameObject: {fileID: 1904236707}
   serializedVersion: 2
   m_LocalRotation: {x: 0.3883414, y: -0.0019372809, z: 0.0008156114, w: 0.9215132}
-  m_LocalPosition: {x: -3.1, y: 5.77, z: -0.33108997}
+  m_LocalPosition: {x: -12.94, y: 5.59, z: 3.63}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
