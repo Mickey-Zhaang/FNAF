@@ -5,17 +5,19 @@ using System.Collections.Generic;
 public enum CameraLocation
 {
     None,
-    CAM_1A, // Show Stage
-    CAM_1B, // Dining Area
-    CAM_1C, // Pirate Cove
-    CAM_2A, // West Hall
-    CAM_2B, // West Hall Corner
-    CAM_3,  // Supply Closet
-    CAM_4A, // East Hall
-    CAM_4B, // East Hall Corner
-    CAM_5,  // Backstage
-    CAM_6,  // Kitchen
-    CAM_7   // Restrooms
+    CAM_1A,
+    CAM_1B,
+    CAM_2A,
+    CAM_2B,
+    CAM_3A,
+    CAM_3C,
+    CAM_4A,
+    CAM_4B,
+    CAM_4C,
+    CAM_5A,
+    CAM_5B,
+    CAM_5C,
+    CAM_6
 }
 
 [System.Serializable]
@@ -131,11 +133,14 @@ public class CameraSystem : MonoBehaviour
         // Number keys for direct camera selection
         if (Keyboard.current.digit1Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_1A);
         if (Keyboard.current.digit2Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_2A);
-        if (Keyboard.current.digit3Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_3);
+        if (Keyboard.current.digit3Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_3A);
         if (Keyboard.current.digit4Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_4A);
-        if (Keyboard.current.digit5Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_5);
+        if (Keyboard.current.digit5Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_5A);
         if (Keyboard.current.digit6Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_6);
-        if (Keyboard.current.digit7Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_7);
+        if (Keyboard.current.digit7Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_4B);
+        if (Keyboard.current.digit8Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_4C);
+        if (Keyboard.current.digit9Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_5B);
+        if (Keyboard.current.digit0Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_5C);
     }
 
     private void HandleDebugViewpointInput()
@@ -145,11 +150,14 @@ public class CameraSystem : MonoBehaviour
         // Number keys to switch viewpoint
         if (Keyboard.current.digit1Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_1A);
         if (Keyboard.current.digit2Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_2A);
-        if (Keyboard.current.digit3Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_3);
+        if (Keyboard.current.digit3Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_3A);
         if (Keyboard.current.digit4Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_4A);
-        if (Keyboard.current.digit5Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_5);
+        if (Keyboard.current.digit5Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_5A);
         if (Keyboard.current.digit6Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_6);
-        if (Keyboard.current.digit7Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_7);
+        if (Keyboard.current.digit7Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_4B);
+        if (Keyboard.current.digit8Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_4C);
+        if (Keyboard.current.digit9Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_5B);
+        if (Keyboard.current.digit0Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_5C);
 
         // Cycle through cameras
         if (Keyboard.current.nKey.wasPressedThisFrame) CycleToNextDebugCamera();
