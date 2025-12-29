@@ -183,10 +183,9 @@ public class CameraSystem : MonoBehaviour
         }
         else
         {
-            // Default to first camera when opening tablet
-            if (currentCamera == CameraLocation.None && cameras.Count > 0)
+            if (cameras.Count > 0)
             {
-                SwitchCamera(cameras[0].location);
+                SwitchToCameraViewpoint(cameras[1].location);
             }
         }
     }
@@ -413,7 +412,7 @@ public class CameraSystem : MonoBehaviour
     }
 
     /// <summary>
-    /// Cycles to the next camera in debug viewpoint mode, or returns to main view if at the end
+    /// Cycles to the next camera in debug viewpoint mode (excludes main camera from cycle)
     /// </summary>
     private void CycleToNextDebugCamera()
     {
@@ -426,21 +425,19 @@ public class CameraSystem : MonoBehaviour
         // If currently viewing main camera, start with first camera
         if (currentDebugCameraIndex < 0)
         {
-            if (cameras.Count > 0)
-            {
-                SwitchToCameraViewpoint(cameras[0].location);
-            }
+            SwitchToCameraViewpoint(cameras[0].location);
             return;
         }
 
         // Move to next camera
         currentDebugCameraIndex++;
 
-        // If we've reached the end, cycle back to main camera view
+        // If we've reached the end, loop back to first camera (not main camera)
         if (currentDebugCameraIndex >= cameras.Count)
         {
-            ReturnToMainCameraView();
-            Debug.Log("CameraSystem: Cycled back to main camera view");
+            currentDebugCameraIndex = 0;
+            SwitchToCameraViewpoint(cameras[0].location);
+            Debug.Log("CameraSystem: Cycled back to first camera");
         }
         else
         {
