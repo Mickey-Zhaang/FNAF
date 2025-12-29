@@ -30,6 +30,8 @@ public class CameraData
 
 public class CameraSystem : MonoBehaviour
 {
+    #region Serialized Fields
+
     [Header("Camera Settings")]
     [SerializeField] private List<CameraData> cameras = new List<CameraData>();
     [SerializeField] private CameraLocation currentCamera = CameraLocation.None;
@@ -43,19 +45,42 @@ public class CameraSystem : MonoBehaviour
     [SerializeField] private Material staticMaterial;
     [SerializeField] private float staticIntensity = 0.5f;
 
+    [Header("Debug - Viewpoint Switching")]
+    [SerializeField] private bool debugViewpointMode = false;
+    [SerializeField] private Camera mainCamera;
+
+    #endregion
+
+    #region Private Fields
+
     private PowerSystem powerSystem;
     private Dictionary<CameraLocation, CameraData> cameraDict = new Dictionary<CameraLocation, CameraData>();
+
+    // Debug viewpoint state
+    private Vector3 originalMainCameraPosition;
+    private Quaternion originalMainCameraRotation;
+    private bool isViewingSecurityCamera = false;
+    private int currentDebugCameraIndex = -1; // -1 means viewing main camera
+
+    #endregion
+
+    #region Unity Lifecycle
 
     private void Start()
     {
         powerSystem = FindFirstObjectByType<PowerSystem>();
         InitializeCameras();
+        InitializeMainCamera();
     }
 
     private void Update()
     {
         HandleInput();
     }
+
+    #endregion
+
+    #region Initialization
 
     private void InitializeCameras()
     {
@@ -66,32 +91,82 @@ public class CameraSystem : MonoBehaviour
         }
     }
 
+    private void InitializeMainCamera()
+    {
+        if (mainCamera == null)
+            mainCamera = Camera.main;
+
+        if (mainCamera != null)
+        {
+            originalMainCameraPosition = mainCamera.transform.position;
+            originalMainCameraRotation = mainCamera.transform.rotation;
+        }
+    }
+
+    #endregion
+
+    #region Input Handling
+
     private void HandleInput()
     {
-        // Toggle tablet (C key or mouse scroll)
-        if (Keyboard.current != null && (Keyboard.current.cKey.wasPressedThisFrame ||
-            (Mouse.current != null && Mouse.current.scroll.ReadValue().y > 0f)))
+        if (Keyboard.current == null) return;
+
+        HandleTabletInput();
+        HandleCameraSwitching();
+        HandleDebugViewpointInput();
+    }
+
+    private void HandleTabletInput()
+    {
+        // Toggle tablet (C key or mouse scroll up)
+        if (Keyboard.current.cKey.wasPressedThisFrame ||
+            (Mouse.current != null && Mouse.current.scroll.ReadValue().y > 0f))
         {
             ToggleTablet();
         }
-
-        // Camera switching (number keys 1-7 or arrow keys)
-        if (isTabletUp && Keyboard.current != null)
-        {
-            // Number keys for cameras
-            if (Keyboard.current.digit1Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_1A);
-            if (Keyboard.current.digit2Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_2A);
-            if (Keyboard.current.digit3Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_3);
-            if (Keyboard.current.digit4Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_4A);
-            if (Keyboard.current.digit5Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_5);
-            if (Keyboard.current.digit6Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_6);
-            if (Keyboard.current.digit7Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_7);
-
-            // Arrow keys for navigation
-            if (Keyboard.current.leftArrowKey.wasPressedThisFrame) SwitchToPreviousCamera();
-            if (Keyboard.current.rightArrowKey.wasPressedThisFrame) SwitchToNextCamera();
-        }
     }
+
+    private void HandleCameraSwitching()
+    {
+        if (!isTabletUp) return;
+
+        // Number keys for direct camera selection
+        if (Keyboard.current.digit1Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_1A);
+        if (Keyboard.current.digit2Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_2A);
+        if (Keyboard.current.digit3Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_3);
+        if (Keyboard.current.digit4Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_4A);
+        if (Keyboard.current.digit5Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_5);
+        if (Keyboard.current.digit6Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_6);
+        if (Keyboard.current.digit7Key.wasPressedThisFrame) SwitchCamera(CameraLocation.CAM_7);
+
+        // Arrow keys for navigation
+        if (Keyboard.current.leftArrowKey.wasPressedThisFrame) SwitchToPreviousCamera();
+        if (Keyboard.current.rightArrowKey.wasPressedThisFrame) SwitchToNextCamera();
+    }
+
+    private void HandleDebugViewpointInput()
+    {
+        if (!debugViewpointMode) return;
+
+        // Number keys to switch viewpoint
+        if (Keyboard.current.digit1Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_1A);
+        if (Keyboard.current.digit2Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_2A);
+        if (Keyboard.current.digit3Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_3);
+        if (Keyboard.current.digit4Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_4A);
+        if (Keyboard.current.digit5Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_5);
+        if (Keyboard.current.digit6Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_6);
+        if (Keyboard.current.digit7Key.wasPressedThisFrame) SwitchToCameraViewpoint(CameraLocation.CAM_7);
+
+        // Cycle through cameras
+        if (Keyboard.current.nKey.wasPressedThisFrame) CycleToNextDebugCamera();
+
+        // Return to main camera view
+        if (Keyboard.current.digit0Key.wasPressedThisFrame) ReturnToMainCameraView();
+    }
+
+    #endregion
+
+    #region Tablet Management
 
     public void ToggleTablet()
     {
@@ -108,13 +183,29 @@ public class CameraSystem : MonoBehaviour
         }
         else
         {
-            // Default to first camera
+            // Default to first camera when opening tablet
             if (currentCamera == CameraLocation.None && cameras.Count > 0)
             {
                 SwitchCamera(cameras[0].location);
             }
         }
     }
+
+    public void ResetCameras()
+    {
+        isTabletUp = false;
+        currentCamera = CameraLocation.None;
+
+        if (tabletUI != null)
+            tabletUI.SetActive(false);
+
+        if (cameraDisplay != null)
+            cameraDisplay.texture = null;
+    }
+
+    #endregion
+
+    #region Camera Switching
 
     public void SwitchCamera(CameraLocation location)
     {
@@ -129,7 +220,6 @@ public class CameraSystem : MonoBehaviour
             cameraDisplay.texture = camData.renderTexture;
         }
 
-        // Check for static (animatronics nearby)
         CheckForStatic(location);
     }
 
@@ -161,9 +251,12 @@ public class CameraSystem : MonoBehaviour
         return -1;
     }
 
+    #endregion
+
+    #region Static Detection
+
     private void CheckForStatic(CameraLocation location)
     {
-        // Check if any animatronics are near this camera location
         AnimatronicBase[] animatronics = FindObjectsByType<AnimatronicBase>(FindObjectsSortMode.None);
         bool hasStatic = false;
 
@@ -176,12 +269,15 @@ public class CameraSystem : MonoBehaviour
             }
         }
 
-        // Apply static effect
         if (cameraDict.ContainsKey(location))
         {
             cameraDict[location].hasStatic = hasStatic;
         }
     }
+
+    #endregion
+
+    #region Public Getters
 
     public bool IsCameraActive()
     {
@@ -198,16 +294,6 @@ public class CameraSystem : MonoBehaviour
         return isTabletUp;
     }
 
-    public void ResetCameras()
-    {
-        isTabletUp = false;
-        currentCamera = CameraLocation.None;
-        if (tabletUI != null)
-            tabletUI.SetActive(false);
-        if (cameraDisplay != null)
-            cameraDisplay.texture = null;
-    }
-
     public bool IsAnimatronicVisible(CameraLocation location, string animatronicName)
     {
         if (!cameraDict.ContainsKey(location))
@@ -216,7 +302,6 @@ public class CameraSystem : MonoBehaviour
         AnimatronicBase[] animatronics = FindObjectsByType<AnimatronicBase>(FindObjectsSortMode.None);
         foreach (var animatronic in animatronics)
         {
-            // Check if animatronic name matches (if specified) and if it's near the camera location
             if (string.IsNullOrEmpty(animatronicName) || animatronic.name.Contains(animatronicName))
             {
                 if (animatronic.IsNearCameraLocation(location))
@@ -227,6 +312,10 @@ public class CameraSystem : MonoBehaviour
         }
         return false;
     }
+
+    #endregion
+
+    #region Camera Management
 
     public void AddCamera(CameraLocation location, string displayName, Camera camera, RenderTexture renderTexture)
     {
@@ -241,5 +330,146 @@ public class CameraSystem : MonoBehaviour
         cameras.Add(newCam);
         cameraDict[location] = newCam;
     }
-}
 
+    #endregion
+
+    #region Debug Viewpoint Switching
+
+    /// <summary>
+    /// Switches the main camera view to match a security camera (for debugging/viewing angles)
+    /// </summary>
+    public void SwitchToCameraViewpoint(CameraLocation location)
+    {
+        if (!cameraDict.ContainsKey(location))
+        {
+            Debug.LogWarning($"CameraSystem: Camera {location} not found!");
+            return;
+        }
+
+        CameraData camData = cameraDict[location];
+        if (camData.camera == null)
+        {
+            Debug.LogWarning($"CameraSystem: Camera GameObject for {location} is null!");
+            return;
+        }
+
+        if (mainCamera == null)
+        {
+            Debug.LogWarning("CameraSystem: Main camera not found!");
+            return;
+        }
+
+        // Store original view if we haven't already
+        if (!isViewingSecurityCamera)
+        {
+            originalMainCameraPosition = mainCamera.transform.position;
+            originalMainCameraRotation = mainCamera.transform.rotation;
+        }
+
+        // Restore previous camera's render texture if we were viewing one
+        RestorePreviousCameraTexture();
+
+        // Switch main camera to security camera's position and rotation
+        mainCamera.transform.position = camData.camera.transform.position;
+        mainCamera.transform.rotation = camData.camera.transform.rotation;
+        mainCamera.fieldOfView = camData.camera.fieldOfView;
+
+        // Temporarily disable the security camera's render texture so we see it directly
+        camData.camera.targetTexture = null;
+        camData.camera.enabled = true;
+
+        // Update state
+        currentDebugCameraIndex = GetCameraIndex(location);
+        isViewingSecurityCamera = true;
+        currentCamera = location;
+
+        Debug.Log($"CameraSystem: Switched main camera view to {location} ({camData.displayName})");
+    }
+
+    /// <summary>
+    /// Returns the main camera to its original viewpoint
+    /// </summary>
+    public void ReturnToMainCameraView()
+    {
+        if (mainCamera == null)
+            return;
+
+        // Restore previous camera's render texture
+        RestorePreviousCameraTexture();
+
+        // Restore original position and rotation
+        mainCamera.transform.position = originalMainCameraPosition;
+        mainCamera.transform.rotation = originalMainCameraRotation;
+
+        // Restore all security cameras to render to their textures
+        RestoreAllCameraTextures();
+
+        // Reset state
+        currentDebugCameraIndex = -1;
+        isViewingSecurityCamera = false;
+        currentCamera = CameraLocation.None;
+
+        Debug.Log("CameraSystem: Returned to main camera view");
+    }
+
+    /// <summary>
+    /// Cycles to the next camera in debug viewpoint mode, or returns to main view if at the end
+    /// </summary>
+    private void CycleToNextDebugCamera()
+    {
+        if (cameras.Count == 0)
+        {
+            Debug.LogWarning("CameraSystem: No cameras available to cycle through!");
+            return;
+        }
+
+        // If currently viewing main camera, start with first camera
+        if (currentDebugCameraIndex < 0)
+        {
+            if (cameras.Count > 0)
+            {
+                SwitchToCameraViewpoint(cameras[0].location);
+            }
+            return;
+        }
+
+        // Move to next camera
+        currentDebugCameraIndex++;
+
+        // If we've reached the end, cycle back to main camera view
+        if (currentDebugCameraIndex >= cameras.Count)
+        {
+            ReturnToMainCameraView();
+            Debug.Log("CameraSystem: Cycled back to main camera view");
+        }
+        else
+        {
+            SwitchToCameraViewpoint(cameras[currentDebugCameraIndex].location);
+        }
+    }
+
+    private void RestorePreviousCameraTexture()
+    {
+        if (isViewingSecurityCamera && currentCamera != CameraLocation.None && cameraDict.ContainsKey(currentCamera))
+        {
+            CameraData prevCam = cameraDict[currentCamera];
+            if (prevCam.camera != null && prevCam.renderTexture != null)
+            {
+                prevCam.camera.targetTexture = prevCam.renderTexture;
+            }
+        }
+    }
+
+    private void RestoreAllCameraTextures()
+    {
+        foreach (var cam in cameras)
+        {
+            if (cam.camera != null && cam.renderTexture != null)
+            {
+                cam.camera.targetTexture = cam.renderTexture;
+            }
+        }
+    }
+
+    #endregion
+}
