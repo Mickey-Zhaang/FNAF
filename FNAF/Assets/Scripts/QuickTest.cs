@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Collections.Generic;
 
 /// <summary>
 /// Quick test script to verify all systems are working.
@@ -14,6 +15,10 @@ public class QuickTest : MonoBehaviour
     private DoorSystem doorSystem;
     private LightSystem lightSystem;
     private CameraSystem cameraSystem;
+    private LocationManager locationManager;
+    private BonnieAI bonnieAI;
+    private List<LocationWaypoint> bonnieWaypoints = new List<LocationWaypoint>();
+    private int currentWaypointIndex = -1;
 
     private void Start()
     {
@@ -25,6 +30,19 @@ public class QuickTest : MonoBehaviour
         doorSystem = FindFirstObjectByType<DoorSystem>();
         lightSystem = FindFirstObjectByType<LightSystem>();
         cameraSystem = FindFirstObjectByType<CameraSystem>();
+        locationManager = LocationManager.Instance;
+        bonnieAI = FindFirstObjectByType<BonnieAI>();
+
+        // Get waypoints for Bonnie
+        if (locationManager != null && bonnieAI != null)
+        {
+            bonnieWaypoints = locationManager.GetWaypointsForAnimatronic("Bonnie");
+            Debug.Log($"QuickTest: Found {bonnieWaypoints.Count} waypoints for Bonnie");
+            foreach (var waypoint in bonnieWaypoints)
+            {
+                Debug.Log($"  - {waypoint.GetWaypointName()}");
+            }
+        }
 
         // Check Input System
         if (Keyboard.current == null)
@@ -119,6 +137,12 @@ public class QuickTest : MonoBehaviour
         {
             TestCameraSystem();
         }
+
+        // Cycle Bonnie between waypoints (K)
+        if (Keyboard.current.kKey.wasPressedThisFrame)
+        {
+            TestCycleBonnieWaypoints();
+        }
     }
 
     #region Camera System Tests
@@ -146,11 +170,118 @@ public class QuickTest : MonoBehaviour
     }
     #endregion
 
+    #region Waypoint System Tests
+
+    /// <summary>
+    /// Cycles Bonnie between available waypoints when K is pressed
+    /// </summary>
+    private void TestCycleBonnieWaypoints()
+    {
+        if (bonnieAI == null)
+        {
+            Debug.LogError("✗ BonnieAI not found! Make sure Bonnie is in the scene with BonnieAI component.");
+            return;
+        }
+
+        if (locationManager == null)
+        {
+            Debug.LogError("✗ LocationManager not found!");
+            return;
+        }
+
+        bonnieWaypoints = locationManager.GetWaypointsForAnimatronic("Bonnie");
+
+        // Find current waypoint index
+        LocationWaypoint currentWaypoint = bonnieAI.GetCurrentWaypoint();
+        if (currentWaypoint != null)
+        {
+            currentWaypointIndex = bonnieWaypoints.IndexOf(currentWaypoint);
+        }
+
+        // Cycle to next waypoint
+        currentWaypointIndex = (currentWaypointIndex + 1) % bonnieWaypoints.Count;
+        LocationWaypoint nextWaypoint = bonnieWaypoints[currentWaypointIndex];
+
+        // Release current waypoint if occupied
+        if (currentWaypoint != null)
+        {
+            currentWaypoint.Release();
+        }
+
+        if (nextWaypoint != null)
+        {
+            // Try to occupy the waypoint (public method)
+            if (nextWaypoint.TryOccupy(bonnieAI))
+            {
+                // Update Bonnie's internal state using reflection (only for private fields)
+                System.Reflection.FieldInfo waypointField = typeof(AnimatronicBase).GetField("currentWaypoint",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                System.Reflection.FieldInfo isMovingField = typeof(AnimatronicBase).GetField("isMovingToWaypoint",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                System.Reflection.FieldInfo stateField = typeof(AnimatronicBase).GetField("currentState",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                System.Reflection.FieldInfo waypointNameField = typeof(AnimatronicBase).GetField("currentWaypointName",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+                if (waypointField != null) waypointField.SetValue(bonnieAI, nextWaypoint);
+                if (isMovingField != null) isMovingField.SetValue(bonnieAI, false);
+                if (stateField != null) stateField.SetValue(bonnieAI, AnimatronicState.Idle);
+                if (waypointNameField != null) waypointNameField.SetValue(bonnieAI, nextWaypoint.GetWaypointName());
+
+                // Teleport Bonnie to the waypoint position
+                bonnieAI.transform.position = nextWaypoint.GetPosition();
+
+                // Check if Bonnie entered the office (game over condition)
+                string waypointName = nextWaypoint.GetWaypointName();
+                if (string.Equals(waypointName, "Office", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    Debug.LogWarning($"Bonnie entered the Office! Triggering jumpscare and game over!");
+                    if (gameManager != null)
+                    {
+                        gameManager.TriggerJumpscare("Bonnie");
+                    }
+                    else
+                    {
+                        Debug.LogError("GameManager is NULL! Cannot trigger jumpscare.");
+                    }
+                }
+
+                Debug.Log($"✓ Bonnie teleported to waypoint: {nextWaypoint.GetWaypointName()} ({currentWaypointIndex + 1}/{bonnieWaypoints.Count})");
+            }
+            else
+            {
+                Debug.LogWarning($"✗ Could not teleport Bonnie to waypoint: {nextWaypoint.GetWaypointName()} (may be occupied)");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"✗ Could not move Bonnie to waypoint: {nextWaypoint?.GetWaypointName() ?? "Unknown"} (may be occupied)");
+        }
+    }
+
+    #endregion
+
     private void OnGUI()
     {
+        // Check if game is over and show game over screen
+        if (gameManager != null)
+        {
+            // Debug: Show current game state
+            GUI.color = Color.yellow;
+            GUI.Label(new Rect(10, Screen.height - 30, 300, 20), $"Game State: {gameManager.currentState}");
+            GUI.color = Color.white;
+
+            if (gameManager.currentState == GameState.GameOver)
+            {
+                Debug.Log("OnGUI: Game state is GameOver, calling ShowGameOverScreen()");
+                ShowGameOverScreen();
+                return; // Don't show other UI when game is over
+            }
+        }
+
         // Display on-screen status
         GUI.Label(new Rect(10, 10, 800, 20), "QUICK TEST - (PRESS) SPACE: start night | P: power status | T: door status | L: light status | V: camera status");
-        GUI.Label(new Rect(10, 30, 800, 20), "N: Cycle Cameras (1A -> 5C -> 1A) | M: Main Camera");
+        GUI.Label(new Rect(10, 30, 800, 20), "N: Cycle Cameras (1A -> 5C -> 1A) | M: Main Camera | K: Cycle Bonnie Waypoints");
 
         // Show system status
         int yOffset = 50;
@@ -171,6 +302,61 @@ public class QuickTest : MonoBehaviour
 
         GUI.color = Keyboard.current != null ? Color.green : Color.red;
         GUI.Label(new Rect(10, yOffset + 100, 300, 20), $"Input System: {(Keyboard.current != null ? "✓" : "✗")}");
+
+        GUI.color = locationManager != null ? Color.green : Color.red;
+        GUI.Label(new Rect(10, yOffset + 120, 300, 20), $"LocationManager: {(locationManager != null ? "✓" : "✗")}");
+
+        GUI.color = bonnieAI != null ? Color.green : Color.red;
+        GUI.Label(new Rect(10, yOffset + 140, 300, 20), $"BonnieAI: {(bonnieAI != null ? "✓" : "✗")}");
+
+        GUI.color = Color.white;
+    }
+
+    /// <summary>
+    /// Displays game over screen when game state is GameOver
+    /// </summary>
+    private void ShowGameOverScreen()
+    {
+        Debug.Log("ShowGameOverScreen() called - rendering game over UI");
+
+        // Dark background overlay
+        GUI.color = new Color(0, 0, 0, 0.8f);
+        GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
+
+        // Game Over text
+        GUI.color = Color.red;
+        GUIStyle gameOverStyle = new GUIStyle(GUI.skin.label);
+        gameOverStyle.fontSize = 48;
+        gameOverStyle.alignment = TextAnchor.MiddleCenter;
+        gameOverStyle.fontStyle = FontStyle.Bold;
+        GUI.Label(new Rect(0, Screen.height / 2 - 100, Screen.width, 60), "GAME OVER", gameOverStyle);
+
+        // Reason text
+        GUI.color = Color.white;
+        GUIStyle reasonStyle = new GUIStyle(GUI.skin.label);
+        reasonStyle.fontSize = 24;
+        reasonStyle.alignment = TextAnchor.MiddleCenter;
+        GUI.Label(new Rect(0, Screen.height / 2 - 20, Screen.width, 30), "Jumpscare", reasonStyle);
+
+        // Instructions
+        GUI.color = Color.yellow;
+        GUIStyle instructionStyle = new GUIStyle(GUI.skin.label);
+        instructionStyle.fontSize = 18;
+        instructionStyle.alignment = TextAnchor.MiddleCenter;
+        GUI.Label(new Rect(0, Screen.height / 2 + 50, Screen.width, 30), "Press R to Restart | Press ESC to Return to Menu", instructionStyle);
+
+        // Handle restart input
+        if (Keyboard.current != null)
+        {
+            if (Keyboard.current.rKey.wasPressedThisFrame && gameManager != null)
+            {
+                gameManager.ResetGameState();
+            }
+            else if (Keyboard.current.escapeKey.wasPressedThisFrame && gameManager != null)
+            {
+                gameManager.ReturnToMenu();
+            }
+        }
 
         GUI.color = Color.white;
     }

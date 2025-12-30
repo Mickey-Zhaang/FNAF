@@ -11,53 +11,84 @@ public enum AnimatronicState
     Attacking
 }
 
-public enum AnimatronicLocation
-{
-    StartingPosition,
-    ShowStage,
-    DiningArea,
-    PirateCove,
-    WestHall,
-    WestHallCorner,
-    SupplyCloset,
-    EastHall,
-    EastHallCorner,
-    Backstage,
-    Kitchen,
-    Restrooms,
-    LeftDoor,
-    RightDoor,
-    Office
-}
-
 public abstract class AnimatronicBase : MonoBehaviour
 {
     [Header("Animatronic Settings")]
     [SerializeField] protected string animatronicName = "Animatronic";
     [SerializeField] protected int aiLevel = 0; // 0-20 difficulty
     [SerializeField] protected AnimatronicState currentState = AnimatronicState.Idle;
-    [SerializeField] protected AnimatronicLocation currentLocation = AnimatronicLocation.StartingPosition;
+
+    [Header("Current Location (Read-Only)")]
+    [SerializeField, Tooltip("Current waypoint name - updated automatically")]
+    private string currentWaypointName = "None";
 
     [Header("Movement Settings")]
     [SerializeField] protected float moveCooldown = 2f;
     [SerializeField] protected float minMoveDelay = 5f;
     [SerializeField] protected float maxMoveDelay = 20f;
+    [SerializeField] protected float moveSpeed = 5f; // Speed for moving to waypoint positions
 
     protected float moveTimer = 0f;
     protected float nextMoveTime = 0f;
+    protected LocationManager locationManager = null;
+    protected LocationWaypoint currentWaypoint = null;
+    protected Vector3 targetPosition;
+    protected bool isMovingToWaypoint = false;
+    protected GameManager gameManager = null;
 
     protected virtual void Start()
     {
+        InitializeReferences();
         ResetPosition();
+    }
+
+    /// <summary>
+    /// Initialize references to external systems.
+    /// </summary>
+    protected virtual void InitializeReferences()
+    {
+        locationManager = LocationManager.Instance;
+        if (locationManager == null)
+        {
+            Debug.LogWarning($"{animatronicName}: LocationManager not found! Waypoint system will not work.");
+        }
+
+        gameManager = GameManager.Instance;
+        if (gameManager == null)
+        {
+            gameManager = FindFirstObjectByType<GameManager>();
+        }
     }
 
     protected virtual void Update()
     {
         UpdateState();
+        UpdateWaypointDisplay();
+    }
+
+    /// <summary>
+    /// Updates the waypoint name display in the Inspector
+    /// </summary>
+    private void UpdateWaypointDisplay()
+    {
+        if (currentWaypoint != null)
+        {
+            currentWaypointName = currentWaypoint.GetWaypointName();
+        }
+        else
+        {
+            currentWaypointName = "None";
+        }
     }
 
     protected virtual void UpdateState()
     {
+        // Don't update if game is over or paused
+        if (gameManager != null && (gameManager.currentState == GameState.GameOver || gameManager.currentState == GameState.NightComplete))
+        {
+            return;
+        }
+
         moveTimer += Time.deltaTime;
 
         switch (currentState)
@@ -84,9 +115,26 @@ public abstract class AnimatronicBase : MonoBehaviour
 
     protected virtual void UpdateMoving()
     {
-        // Movement logic - override in derived classes
-        moveTimer = 0f;
-        currentState = AnimatronicState.Idle;
+        if (isMovingToWaypoint && currentWaypoint != null)
+        {
+            // Teleport instantly to waypoint position
+            transform.position = currentWaypoint.GetPosition();
+            string waypointName = currentWaypoint.GetWaypointName();
+            isMovingToWaypoint = false;
+            moveTimer = 0f;
+            currentState = AnimatronicState.Idle;
+            Debug.Log($"{animatronicName} teleported to waypoint: {waypointName}");
+
+            // Check if animatronic entered the office (game over condition)
+            CheckOfficeEntry(waypointName);
+        }
+        else
+        {
+            // No waypoint to move to, just finish moving
+            isMovingToWaypoint = false;
+            moveTimer = 0f;
+            currentState = AnimatronicState.Idle;
+        }
     }
 
     protected virtual void UpdateAttacking()
@@ -134,10 +182,24 @@ public abstract class AnimatronicBase : MonoBehaviour
 
     public virtual void ResetPosition()
     {
+        ReleaseCurrentWaypoint();
         currentState = AnimatronicState.Idle;
-        currentLocation = AnimatronicLocation.StartingPosition;
         moveTimer = 0f;
         nextMoveTime = Random.Range(minMoveDelay, maxMoveDelay);
+        isMovingToWaypoint = false;
+    }
+
+    /// <summary>
+    /// Release the current waypoint when changing locations or resetting.
+    /// </summary>
+    protected virtual void ReleaseCurrentWaypoint()
+    {
+        if (currentWaypoint != null)
+        {
+            currentWaypoint.Release();
+            currentWaypoint = null;
+            currentWaypointName = "None"; // Update display field
+        }
     }
 
     public virtual void SetNightDifficulty(int night)
@@ -176,13 +238,73 @@ public abstract class AnimatronicBase : MonoBehaviour
         return currentState;
     }
 
-    public AnimatronicLocation GetCurrentLocation()
-    {
-        return currentLocation;
-    }
-
     public string GetAnimatronicName()
     {
         return animatronicName;
+    }
+
+    /// <summary>
+    /// Get the current waypoint this animatronic is occupying.
+    /// </summary>
+    public LocationWaypoint GetCurrentWaypoint()
+    {
+        return currentWaypoint;
+    }
+
+    /// <summary>
+    /// Try to occupy a waypoint and teleport to it instantly.
+    /// Returns true if successful.
+    /// </summary>
+    protected virtual bool TryOccupyWaypoint(LocationWaypoint waypoint)
+    {
+        if (waypoint == null)
+        {
+            return false;
+        }
+
+        // Release current waypoint if moving to a new one
+        if (currentWaypoint != null && currentWaypoint != waypoint)
+        {
+            ReleaseCurrentWaypoint();
+        }
+
+        // Try to occupy the new waypoint
+        if (waypoint.TryOccupy(this))
+        {
+            currentWaypoint = waypoint;
+            string waypointName = waypoint.GetWaypointName();
+            currentWaypointName = waypointName; // Update display field
+
+            // Teleport instantly to waypoint position
+            transform.position = waypoint.GetPosition();
+            isMovingToWaypoint = false;
+            currentState = AnimatronicState.Idle;
+
+            // Check if animatronic entered the office (game over condition)
+            CheckOfficeEntry(waypointName);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Check if the animatronic entered the office and trigger game over if so.
+    /// </summary>
+    protected virtual void CheckOfficeEntry(string waypointName)
+    {
+        // Check if waypoint name is "Office" (case-insensitive)
+        if (string.Equals(waypointName, "Office", System.StringComparison.OrdinalIgnoreCase))
+        {
+            // Only trigger if game is still playing (prevent multiple triggers)
+            if (gameManager != null && gameManager.currentState == GameState.Playing)
+            {
+                Debug.LogWarning($"{animatronicName} entered the office! Game Over!");
+
+                // Trigger jumpscare and game over
+                gameManager.TriggerJumpscare(animatronicName);
+            }
+        }
     }
 }

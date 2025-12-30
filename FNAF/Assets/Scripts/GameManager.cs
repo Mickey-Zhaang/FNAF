@@ -72,17 +72,17 @@ public class GameManager : MonoBehaviour
     {
         // Get or create system references
         if (powerSystem == null)
-            powerSystem = FindObjectOfType<PowerSystem>();
+            powerSystem = FindFirstObjectByType<PowerSystem>();
         if (cameraSystem == null)
-            cameraSystem = FindObjectOfType<CameraSystem>();
+            cameraSystem = FindFirstObjectByType<CameraSystem>();
         if (doorSystem == null)
-            doorSystem = FindObjectOfType<DoorSystem>();
+            doorSystem = FindFirstObjectByType<DoorSystem>();
         if (lightSystem == null)
-            lightSystem = FindObjectOfType<LightSystem>();
+            lightSystem = FindFirstObjectByType<LightSystem>();
         if (audioManager == null)
-            audioManager = FindObjectOfType<AudioManager>();
+            audioManager = FindFirstObjectByType<AudioManager>();
         if (jumpscareSystem == null)
-            jumpscareSystem = FindObjectOfType<JumpscareSystem>();
+            jumpscareSystem = FindFirstObjectByType<JumpscareSystem>();
     }
 
     public void StartNight(int nightNumber)
@@ -167,11 +167,38 @@ public class GameManager : MonoBehaviour
 
     public void GameOver(string reason = "Jumpscare")
     {
-        if (currentState == GameState.Playing)
+        Debug.LogWarning($"GameOver called with reason: {reason}. Current game state: {currentState}");
+
+        // Allow game over even if not in Playing state (for testing purposes)
+        // But prevent multiple game overs
+        if (currentState != GameState.GameOver && currentState != GameState.NightComplete)
         {
+            Debug.Log($"Setting game state to GameOver. Previous state: {currentState}");
             SetGameState(GameState.GameOver);
+
             if (audioManager != null)
+            {
                 audioManager.PlayGameOverSound();
+            }
+            else
+            {
+                Debug.LogWarning("AudioManager is NULL! Game over sound may not play.");
+            }
+
+            // Also try to show GameUI game over screen if available
+            GameUI gameUIComponent = FindFirstObjectByType<GameUI>();
+            if (gameUIComponent != null)
+            {
+                gameUIComponent.ShowGameOver(reason);
+            }
+            else
+            {
+                Debug.LogWarning("GameUI component not found. Game over screen may not display.");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"GameOver called but game state is already {currentState}. Ignoring.");
         }
     }
 
@@ -197,7 +224,7 @@ public class GameManager : MonoBehaviour
     private void InitializeAnimatronics()
     {
         // Get all animatronics and set their difficulty based on current night
-        AnimatronicBase[] animatronics = FindObjectsOfType<AnimatronicBase>();
+        AnimatronicBase[] animatronics = FindObjectsByType<AnimatronicBase>(FindObjectsSortMode.None);
         foreach (var animatronic in animatronics)
         {
             animatronic.SetNightDifficulty(currentNight);
@@ -223,7 +250,80 @@ public class GameManager : MonoBehaviour
 
     public void RestartGame()
     {
+        // Reset game state first
+        SetGameState(GameState.Playing);
+        Time.timeScale = 1f;
+
+        // Release all waypoints
+        LocationManager locationMgr = FindFirstObjectByType<LocationManager>();
+        if (locationMgr != null)
+        {
+            locationMgr.ReleaseAllWaypoints();
+        }
+
+        // Reset all animatronics
+        AnimatronicBase[] animatronics = FindObjectsByType<AnimatronicBase>(FindObjectsSortMode.None);
+        foreach (var animatronic in animatronics)
+        {
+            animatronic.ResetPosition();
+        }
+
+        // Reset systems
+        if (powerSystem != null)
+            powerSystem.ResetPower();
+        if (cameraSystem != null)
+            cameraSystem.ResetCameras();
+        if (doorSystem != null)
+            doorSystem.ResetDoors();
+        if (lightSystem != null)
+            lightSystem.ResetLights();
+
+        // Reset game time
+        gameTime = 0f;
+        isGameActive = true;
+
+        // Reload scene to ensure clean state
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    /// <summary>
+    /// Reset game state without reloading scene (useful for testing)
+    /// </summary>
+    public void ResetGameState()
+    {
+        // Reset game state
+        SetGameState(GameState.Playing);
+        Time.timeScale = 1f;
+
+        // Release all waypoints
+        LocationManager locationMgr = FindFirstObjectByType<LocationManager>();
+        if (locationMgr != null)
+        {
+            locationMgr.ReleaseAllWaypoints();
+        }
+
+        // Reset all animatronics
+        AnimatronicBase[] animatronics = FindObjectsByType<AnimatronicBase>(FindObjectsSortMode.None);
+        foreach (var animatronic in animatronics)
+        {
+            animatronic.ResetPosition();
+        }
+
+        // Reset systems
+        if (powerSystem != null)
+            powerSystem.ResetPower();
+        if (cameraSystem != null)
+            cameraSystem.ResetCameras();
+        if (doorSystem != null)
+            doorSystem.ResetDoors();
+        if (lightSystem != null)
+            lightSystem.ResetLights();
+
+        // Reset game time
+        gameTime = 0f;
+        isGameActive = true;
+
+        Debug.Log("Game state reset - ready to test again!");
     }
 
     public void ReturnToMenu()

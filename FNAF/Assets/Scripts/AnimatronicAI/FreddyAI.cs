@@ -9,29 +9,43 @@ public class FreddyAI : AnimatronicBase
     {
         base.Start();
         animatronicName = "Freddy";
-        currentLocation = AnimatronicLocation.ShowStage;
     }
 
     protected override void MoveToNextLocation()
     {
         // TODO: Implement Freddy's movement logic here
-        Debug.Log($"{animatronicName} moving from {currentLocation}");
+        string currentWaypointName = currentWaypoint != null ? currentWaypoint.GetWaypointName() : null;
+        Debug.Log($"{animatronicName} moving from waypoint: {(currentWaypointName ?? "None")}");
 
-        // Simple example: cycle through locations
-        int locationCount = System.Enum.GetValues(typeof(AnimatronicLocation)).Length;
-        int currentIndex = (int)currentLocation;
-        int nextIndex = (currentIndex + 1) % locationCount;
+        if (locationManager == null)
+        {
+            Debug.LogWarning($"{animatronicName}: LocationManager not available. Cannot move.");
+            return;
+        }
 
-        currentLocation = (AnimatronicLocation)nextIndex;
-        currentState = AnimatronicState.Moving;
-
-        moveTimer = 0f;
-        nextMoveTime = Random.Range(minMoveDelay, maxMoveDelay);
+        // Simple example: get any available waypoint
+        LocationWaypoint waypoint = locationManager.GetAvailableWaypoint(animatronicName);
+        if (waypoint != null)
+        {
+            if (TryOccupyWaypoint(waypoint))
+            {
+                moveTimer = 0f;
+                nextMoveTime = Random.Range(minMoveDelay, maxMoveDelay);
+            }
+        }
     }
 
     public override void ResetPosition()
     {
         base.ResetPosition();
-        currentLocation = AnimatronicLocation.ShowStage;
+        // Try to find starting waypoint if needed
+        if (locationManager != null && currentWaypoint == null)
+        {
+            LocationWaypoint startWaypoint = locationManager.GetAvailableWaypoint(animatronicName, "ShowStage");
+            if (startWaypoint != null)
+            {
+                TryOccupyWaypoint(startWaypoint);
+            }
+        }
     }
 }

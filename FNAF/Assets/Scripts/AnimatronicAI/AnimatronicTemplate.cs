@@ -13,26 +13,32 @@ public class AnimatronicTemplate : AnimatronicBase
     {
         base.Start();
         animatronicName = "Template";
-        currentLocation = AnimatronicLocation.StartingPosition;
     }
 
     protected override void MoveToNextLocation()
     {
         // TODO: Implement movement logic here
-        // Example: Move to next location in sequence
+        // Example: Move to next waypoint
 
-        Debug.Log($"{animatronicName} moving from {currentLocation}");
+        string currentWaypointName = currentWaypoint != null ? currentWaypoint.GetWaypointName() : null;
+        Debug.Log($"{animatronicName} moving from waypoint: {(currentWaypointName ?? "None")}");
 
-        // Simple example: cycle through locations
-        int locationCount = System.Enum.GetValues(typeof(AnimatronicLocation)).Length;
-        int currentIndex = (int)currentLocation;
-        int nextIndex = (currentIndex + 1) % locationCount;
+        if (locationManager == null)
+        {
+            Debug.LogWarning($"{animatronicName}: LocationManager not available. Cannot move.");
+            return;
+        }
 
-        currentLocation = (AnimatronicLocation)nextIndex;
-        currentState = AnimatronicState.Moving;
-
-        moveTimer = 0f;
-        nextMoveTime = Random.Range(minMoveDelay, maxMoveDelay);
+        // Simple example: get any available waypoint
+        LocationWaypoint waypoint = locationManager.GetAvailableWaypoint(animatronicName);
+        if (waypoint != null)
+        {
+            if (TryOccupyWaypoint(waypoint))
+            {
+                moveTimer = 0f;
+                nextMoveTime = Random.Range(minMoveDelay, maxMoveDelay);
+            }
+        }
     }
 
     protected override void UpdateMoving()
@@ -40,7 +46,8 @@ public class AnimatronicTemplate : AnimatronicBase
         // Customize movement behavior here
         base.UpdateMoving();
 
-        Debug.Log($"{animatronicName} arrived at {currentLocation}");
+        string currentWaypointName = currentWaypoint != null ? currentWaypoint.GetWaypointName() : null;
+        Debug.Log($"{animatronicName} arrived at waypoint: {(currentWaypointName ?? "Unknown")}");
     }
 
     protected override void UpdateAttacking()
@@ -54,7 +61,15 @@ public class AnimatronicTemplate : AnimatronicBase
     public override void ResetPosition()
     {
         base.ResetPosition();
-        currentLocation = AnimatronicLocation.StartingPosition;
+        // Try to find starting waypoint if needed
+        if (locationManager != null && currentWaypoint == null)
+        {
+            LocationWaypoint startWaypoint = locationManager.GetAvailableWaypoint(animatronicName);
+            if (startWaypoint != null)
+            {
+                TryOccupyWaypoint(startWaypoint);
+            }
+        }
     }
 }
 

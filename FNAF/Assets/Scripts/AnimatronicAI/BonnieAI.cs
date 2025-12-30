@@ -9,29 +9,108 @@ public class BonnieAI : AnimatronicBase
     {
         base.Start();
         animatronicName = "Bonnie";
-        currentLocation = AnimatronicLocation.ShowStage;
     }
 
     protected override void MoveToNextLocation()
     {
-        // TODO: Implement Bonnie's movement logic here
-        Debug.Log($"{animatronicName} moving from {currentLocation}");
+        if (locationManager == null)
+        {
+            Debug.LogWarning($"{animatronicName}: LocationManager not available. Cannot move.");
+            return;
+        }
 
-        // Simple example: cycle through locations
-        int locationCount = System.Enum.GetValues(typeof(AnimatronicLocation)).Length;
-        int currentIndex = (int)currentLocation;
-        int nextIndex = (currentIndex + 1) % locationCount;
+        string currentWaypointName = currentWaypoint != null ? currentWaypoint.GetWaypointName() : null;
+        Debug.Log($"{animatronicName} attempting to move from waypoint: {(currentWaypointName ?? "None")}");
 
-        currentLocation = (AnimatronicLocation)nextIndex;
-        currentState = AnimatronicState.Moving;
+        // Define Bonnie's movement path by waypoint names (can be customized in Unity Inspector)
+        // These should match the waypoint names you set in the scene
+        string[] bonniePath = new string[]
+        {
+            "ShowStage",
+            "DiningArea",
+            "WestHall",
+            "WestHallCorner",
+            "SupplyCloset",
+            "LeftDoor",
+            "Office"
+        };
 
-        moveTimer = 0f;
-        nextMoveTime = Random.Range(minMoveDelay, maxMoveDelay);
+        // Try to find the next location in Bonnie's path
+        string targetWaypointName = null;
+        int currentIndex = -1;
+
+        if (!string.IsNullOrEmpty(currentWaypointName))
+        {
+            currentIndex = System.Array.IndexOf(bonniePath, currentWaypointName);
+        }
+
+        if (currentIndex >= 0 && currentIndex < bonniePath.Length - 1)
+        {
+            // Move to next location in path
+            targetWaypointName = bonniePath[currentIndex + 1];
+        }
+        else if (currentIndex < 0)
+        {
+            // Not in path, start from beginning
+            targetWaypointName = bonniePath[0];
+        }
+        else
+        {
+            // At end of path, try to find any available waypoint
+            // This allows Bonnie to explore other locations if path is blocked
+            LocationWaypoint availableWaypoint = locationManager.GetAvailableWaypoint(animatronicName);
+            if (availableWaypoint != null)
+            {
+                targetWaypointName = availableWaypoint.GetWaypointName();
+            }
+        }
+
+        // Try to get an available waypoint for the target location
+        if (!string.IsNullOrEmpty(targetWaypointName))
+        {
+            LocationWaypoint waypoint = locationManager.GetAvailableWaypoint(animatronicName, targetWaypointName);
+
+            if (waypoint != null)
+            {
+                if (TryOccupyWaypoint(waypoint))
+                {
+                    Debug.Log($"{animatronicName} moving to waypoint: {targetWaypointName}");
+                    moveTimer = 0f;
+                    nextMoveTime = Random.Range(minMoveDelay, maxMoveDelay);
+                }
+                else
+                {
+                    Debug.LogWarning($"{animatronicName} could not occupy waypoint: {targetWaypointName}");
+                    // Try to find any available waypoint as fallback
+                    LocationWaypoint fallbackWaypoint = locationManager.GetAvailableWaypoint(animatronicName);
+                    if (fallbackWaypoint != null)
+                    {
+                        TryOccupyWaypoint(fallbackWaypoint);
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"{animatronicName} could not find available waypoint: {targetWaypointName}");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"{animatronicName} could not determine next location");
+        }
     }
 
     public override void ResetPosition()
     {
         base.ResetPosition();
-        currentLocation = AnimatronicLocation.ShowStage;
+        // Try to find starting waypoint if needed
+        if (locationManager != null && currentWaypoint == null)
+        {
+            LocationWaypoint startWaypoint = locationManager.GetAvailableWaypoint(animatronicName, "ShowStage");
+            if (startWaypoint != null)
+            {
+                TryOccupyWaypoint(startWaypoint);
+            }
+        }
     }
 }

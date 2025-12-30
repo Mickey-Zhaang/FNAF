@@ -12,7 +12,6 @@ public class FoxyAI : AnimatronicBase
     {
         base.Start();
         animatronicName = "Foxy";
-        currentLocation = AnimatronicLocation.PirateCove;
     }
 
     protected override void MoveToNextLocation()
@@ -31,8 +30,16 @@ public class FoxyAI : AnimatronicBase
     public override void ResetPosition()
     {
         base.ResetPosition();
-        currentLocation = AnimatronicLocation.PirateCove;
         stage = 0;
+        // Try to find starting waypoint if needed
+        if (locationManager != null && currentWaypoint == null)
+        {
+            LocationWaypoint startWaypoint = locationManager.GetAvailableWaypoint(animatronicName, "PirateCove");
+            if (startWaypoint != null)
+            {
+                TryOccupyWaypoint(startWaypoint);
+            }
+        }
     }
 
     public int GetStage()
