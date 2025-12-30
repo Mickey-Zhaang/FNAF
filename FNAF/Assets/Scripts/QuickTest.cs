@@ -17,8 +17,13 @@ public class QuickTest : MonoBehaviour
     private CameraSystem cameraSystem;
     private LocationManager locationManager;
     private BonnieAI bonnieAI;
+
+    private FreddyAI freddyAI;
+
     private List<LocationWaypoint> bonnieWaypoints = new List<LocationWaypoint>();
-    private int currentWaypointIndex = -1;
+    private List<LocationWaypoint> freddyWayPoints = new List<LocationWaypoint>();
+    private int bonnieWaypointIndex = -1;
+    private int freddyWaypointIndex = -1;
 
     private void Start()
     {
@@ -32,6 +37,7 @@ public class QuickTest : MonoBehaviour
         cameraSystem = FindFirstObjectByType<CameraSystem>();
         locationManager = LocationManager.Instance;
         bonnieAI = FindFirstObjectByType<BonnieAI>();
+        freddyAI = FindFirstObjectByType<FreddyAI>();
 
         // Get waypoints for Bonnie
         if (locationManager != null && bonnieAI != null)
@@ -39,6 +45,17 @@ public class QuickTest : MonoBehaviour
             bonnieWaypoints = locationManager.GetWaypointsForAnimatronic("Bonnie");
             Debug.Log($"QuickTest: Found {bonnieWaypoints.Count} waypoints for Bonnie");
             foreach (var waypoint in bonnieWaypoints)
+            {
+                Debug.Log($"  - {waypoint.GetWaypointName()}");
+            }
+        }
+
+        // Get waypoints for Freddy
+        if (locationManager != null && freddyAI != null)
+        {
+            freddyWayPoints = locationManager.GetWaypointsForAnimatronic("Freddy");
+            Debug.Log($"QuickTest: Found {freddyWayPoints.Count} waypoints for Freddy");
+            foreach (var waypoint in freddyWayPoints)
             {
                 Debug.Log($"  - {waypoint.GetWaypointName()}");
             }
@@ -143,6 +160,11 @@ public class QuickTest : MonoBehaviour
         {
             TestCycleBonnieWaypoints();
         }
+        // Cycle Freddy between waypoints (f)
+        if (Keyboard.current.fKey.wasPressedThisFrame)
+        {
+            TestCycleFreddyWaypoints();
+        }
     }
 
     #region Camera System Tests
@@ -195,12 +217,12 @@ public class QuickTest : MonoBehaviour
         LocationWaypoint currentWaypoint = bonnieAI.GetCurrentWaypoint();
         if (currentWaypoint != null)
         {
-            currentWaypointIndex = bonnieWaypoints.IndexOf(currentWaypoint);
+            bonnieWaypointIndex = bonnieWaypoints.IndexOf(currentWaypoint);
         }
 
         // Cycle to next waypoint
-        currentWaypointIndex = (currentWaypointIndex + 1) % bonnieWaypoints.Count;
-        LocationWaypoint nextWaypoint = bonnieWaypoints[currentWaypointIndex];
+        bonnieWaypointIndex = (bonnieWaypointIndex + 1) % bonnieWaypoints.Count;
+        LocationWaypoint nextWaypoint = bonnieWaypoints[bonnieWaypointIndex];
 
         // Release current waypoint if occupied
         if (currentWaypoint != null)
@@ -246,7 +268,7 @@ public class QuickTest : MonoBehaviour
                     }
                 }
 
-                Debug.Log($"✓ Bonnie teleported to waypoint: {nextWaypoint.GetWaypointName()} ({currentWaypointIndex + 1}/{bonnieWaypoints.Count})");
+                Debug.Log($"✓ Bonnie teleported to waypoint: {nextWaypoint.GetWaypointName()} ({bonnieWaypointIndex + 1}/{bonnieWaypoints.Count})");
             }
             else
             {
@@ -256,6 +278,90 @@ public class QuickTest : MonoBehaviour
         else
         {
             Debug.LogWarning($"✗ Could not move Bonnie to waypoint: {nextWaypoint?.GetWaypointName() ?? "Unknown"} (may be occupied)");
+        }
+    }
+
+    private void TestCycleFreddyWaypoints()
+    {
+        if (freddyAI == null)
+        {
+            Debug.LogError("✗ FreddyAI not found! Make sure Bonnie is in the scene with FreddyAI component.");
+            return;
+        }
+
+        if (locationManager == null)
+        {
+            Debug.LogError("✗ LocationManager not found!");
+            return;
+        }
+
+        freddyWayPoints = locationManager.GetWaypointsForAnimatronic("Freddy");
+
+        // Find current waypoint index
+        LocationWaypoint currentWaypoint = freddyAI.GetCurrentWaypoint();
+        if (currentWaypoint != null)
+        {
+            freddyWaypointIndex = freddyWayPoints.IndexOf(currentWaypoint);
+        }
+
+        // Cycle to next waypoint
+        freddyWaypointIndex = (freddyWaypointIndex + 1) % freddyWayPoints.Count;
+        LocationWaypoint nextWaypoint = freddyWayPoints[freddyWaypointIndex];
+
+        // Release current waypoint if occupied
+        if (currentWaypoint != null)
+        {
+            currentWaypoint.Release();
+        }
+
+        if (nextWaypoint != null)
+        {
+            // Try to occupy the waypoint (public method)
+            if (nextWaypoint.TryOccupy(freddyAI))
+            {
+                // Update Freddy's internal state using reflection (only for private fields)
+                System.Reflection.FieldInfo waypointField = typeof(AnimatronicBase).GetField("currentWaypoint",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                System.Reflection.FieldInfo isMovingField = typeof(AnimatronicBase).GetField("isMovingToWaypoint",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                System.Reflection.FieldInfo stateField = typeof(AnimatronicBase).GetField("currentState",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                System.Reflection.FieldInfo waypointNameField = typeof(AnimatronicBase).GetField("currentWaypointName",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+                if (waypointField != null) waypointField.SetValue(freddyAI, nextWaypoint);
+                if (isMovingField != null) isMovingField.SetValue(freddyAI, false);
+                if (stateField != null) stateField.SetValue(freddyAI, AnimatronicState.Idle);
+                if (waypointNameField != null) waypointNameField.SetValue(freddyAI, nextWaypoint.GetWaypointName());
+
+                // Teleport Freddy to the waypoint position
+                freddyAI.transform.position = nextWaypoint.GetPosition();
+
+                // Check if Freddy entered the office (game over condition)
+                string waypointName = nextWaypoint.GetWaypointName();
+                if (string.Equals(waypointName, "Office", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    Debug.LogWarning($"Freddy entered the Office! Triggering jumpscare and game over!");
+                    if (gameManager != null)
+                    {
+                        gameManager.TriggerJumpscare("Freddy");
+                    }
+                    else
+                    {
+                        Debug.LogError("GameManager is NULL! Cannot trigger jumpscare.");
+                    }
+                }
+
+                Debug.Log($"✓ Freddy teleported to waypoint: {nextWaypoint.GetWaypointName()} ({freddyWaypointIndex + 1}/{freddyWayPoints.Count})");
+            }
+            else
+            {
+                Debug.LogWarning($"✗ Could not teleport Freddy to waypoint: {nextWaypoint.GetWaypointName()} (may be occupied)");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"✗ Could not move Freddy to waypoint: {nextWaypoint?.GetWaypointName() ?? "Unknown"} (may be occupied)");
         }
     }
 
@@ -305,9 +411,6 @@ public class QuickTest : MonoBehaviour
 
         GUI.color = locationManager != null ? Color.green : Color.red;
         GUI.Label(new Rect(10, yOffset + 120, 300, 20), $"LocationManager: {(locationManager != null ? "✓" : "✗")}");
-
-        GUI.color = bonnieAI != null ? Color.green : Color.red;
-        GUI.Label(new Rect(10, yOffset + 140, 300, 20), $"BonnieAI: {(bonnieAI != null ? "✓" : "✗")}");
 
         GUI.color = Color.white;
     }
